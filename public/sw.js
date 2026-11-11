@@ -1,15 +1,14 @@
-// KeyNest Security-Hardened Service Worker (v1)
-// Enables PWA installation while STRICTLY refusing to cache API calls, Supabase traffic,
-// or sensitive dynamic vault documents (per KeyNest Security Spec §7.3).
+// KeyNest Security-Hardened Service Worker (v2)
+// Enables standalone PWA installation on mobile & desktop while NEVER caching
+// decrypted vault pages, Supabase API responses, or /api routes.
 
-const STATIC_CACHE = 'keynest-static-v1';
+const STATIC_CACHE = 'keynest-static-v2';
 const STATIC_ASSETS = [
+  '/offline.html',
   '/manifest.json',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/icons/apple-touch-icon.png',
-  '/icons/icon-192.svg',
-  '/icons/icon-512.svg',
 ];
 
 self.addEventListener('install', (event) => {
@@ -42,18 +41,25 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(req.url);
 
-  // Never intercept or cache external origins (Supabase, Gemini, etc.) or internal /api routes
+  // Never intercept external requests (Supabase, Gemini) or API routes
   if (url.origin !== self.location.origin || url.pathname.startsWith('/api/')) {
     return;
   }
 
-  // Only cache immutable static icons/manifest/fonts; always fetch app HTML & scripts fresh
-  const isStaticAsset =
+  // Navigation requests: always fetch live from network; fall back only to secret-free offline.html
+  if (req.mode === 'navigate') {
+    event.respondWith(
+      fetch(req).catch(() => caches.match('/offline.html')),
+    );
+    return;
+  }
+
+  const isStaticIconOrManifest =
     url.pathname === '/manifest.json' ||
+    url.pathname === '/offline.html' ||
     url.pathname.startsWith('/icons/');
 
-  if (!isStaticAsset) {
-    event.respondWith(fetch(req));
+  if (!isStaticIconOrManifest) {
     return;
   }
 
@@ -70,4 +76,3 @@ self.addEventListener('fetch', (event) => {
     }),
   );
 });
-

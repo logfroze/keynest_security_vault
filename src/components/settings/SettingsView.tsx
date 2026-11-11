@@ -23,6 +23,7 @@ import { formatRelativeTime } from '@/modules/security/securityUtils';
 import { usePwa } from '../providers/PwaProvider';
 import { useTheme } from '../providers/ThemeProvider';
 import { useVault } from '../providers/VaultProvider';
+import { InstallAppButton } from '../pwa/InstallAppButton';
 import { RecoveryBannerModal } from '../security/RecoveryBannerModal';
 
 export function SettingsView({
@@ -33,7 +34,7 @@ export function SettingsView({
   onChangeCloudApiKey: (val: string) => void;
 }) {
   const { theme, setTheme } = useTheme();
-  const { swRegistered, canInstall, isStandalone, promptInstall } = usePwa();
+  const { swRegistered, isStandalone } = usePwa();
   const {
     backendMode,
     user,
@@ -251,15 +252,7 @@ export function SettingsView({
             </div>
           </div>
 
-          {canInstall && (
-            <button
-              type="button"
-              onClick={() => void promptInstall()}
-              className="rounded-xl bg-teal-600 px-4 py-2 text-xs font-semibold text-white hover:bg-teal-500"
-            >
-              Install KeyNest App
-            </button>
-          )}
+          <InstallAppButton variant="card" />
         </div>
       </section>
 

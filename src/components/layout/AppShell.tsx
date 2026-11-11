@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from 'react';
 import {
-  Download,
   Home,
   KeyRound,
   Lock,
@@ -20,9 +19,9 @@ import type { DecryptedVaultItem, VaultCategory } from '@/types/vault';
 import { AiCopilotDrawer } from '../ai/AiCopilotDrawer';
 import { VaultAiWorkspace } from '../ai/VaultAiWorkspace';
 import { ItemEditorModal } from '../forms/ItemEditorModal';
-import { usePwa } from '../providers/PwaProvider';
 import { useTheme } from '../providers/ThemeProvider';
 import { useVault } from '../providers/VaultProvider';
+import { InstallAppButton } from '../pwa/InstallAppButton';
 import { ConflictResolutionModal } from '../security/ConflictResolutionModal';
 import { PasswordGeneratorModal } from '../security/PasswordGeneratorModal';
 import { SecurityCenterModal } from '../security/SecurityCenterModal';
@@ -36,7 +35,6 @@ type VaultFilter = VaultCategory | 'all' | 'favorites' | 'recent' | 'trash';
 
 export function AppShell({ initialTab = 'home' }: { initialTab?: ActiveTab }) {
   const { theme, setTheme, toggleTheme } = useTheme();
-  const { canInstall, promptInstall } = usePwa();
   const {
     backendMode,
     profile,
@@ -214,17 +212,7 @@ export function AppShell({ initialTab = 'home' }: { initialTab?: ActiveTab }) {
             )}
           </button>
 
-          {canInstall && (
-            <button
-              type="button"
-              onClick={() => void promptInstall()}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-teal-500/40 bg-teal-50 px-2.5 py-1.5 text-xs font-semibold text-teal-700 hover:bg-teal-100 dark:bg-teal-500/15 dark:text-teal-300"
-              title="Install KeyNest as Desktop / Mobile App"
-            >
-              <Download className="h-3.5 w-3.5" />
-              <span className="hidden md:inline">Install App</span>
-            </button>
-          )}
+          <InstallAppButton variant="header" />
 
           {/* Side-by-Side AI Copilot Button (BK Packages style!) */}
           <button

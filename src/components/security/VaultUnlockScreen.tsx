@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../providers/ThemeProvider';
 import { useVault } from '../providers/VaultProvider';
+import { InstallAppButton } from '../pwa/InstallAppButton';
 
 export function VaultUnlockScreen({
   defaultMode = 'master',
@@ -88,6 +89,7 @@ export function VaultUnlockScreen({
           </div>
 
           <div className="flex items-center gap-2">
+            <InstallAppButton variant="compact" />
             <button
               type="button"
               onClick={toggleTheme}

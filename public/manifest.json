@@ -6,7 +6,7 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["standalone", "window-controls-overlay"],
+  "prefer_related_applications": false,
   "background_color": "#F4F7FA",
   "theme_color": "#0D9488",
   "orientation": "any",
@@ -35,11 +35,6 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
-    },
-    {
-      "src": "/icons/icon-192.svg",
-      "sizes": "any",
-      "type": "image/svg+xml"
     }
   ]
 }

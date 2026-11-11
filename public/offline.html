@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>KeyNest — Offline</title>
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f4f7fa;
+      color: #0f172a;
+      padding: 24px;
+    }
+    .card {
+      max-width: 400px;
+      background: #ffffff;
+      border: 1px solid #dbe3ee;
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+    }
+    h1 { font-size: 18px; margin: 0 0 8px; }
+    p { font-size: 13px; color: #475569; line-height: 1.5; margin: 0 0 16px; }
+    button {
+      background: #0d9488;
+      color: #fff;
+      border: 0;
+      padding: 10px 18px;
+      border-radius: 10px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>You are currently offline</h1>
+    <p>KeyNest never caches decrypted vault pages. Reconnect to your network and tap Retry to unlock your vault.</p>
+    <button onclick="location.reload()">Retry Connection</button>
+  </div>
+</body>
+</html>

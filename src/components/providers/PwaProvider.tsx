@@ -13,11 +13,16 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
 }
 
+export type DetectedPlatform = 'android' | 'ios' | 'desktop';
+
 interface PwaContextValue {
   swRegistered: boolean;
   canInstall: boolean;
   isStandalone: boolean;
-  promptInstall: () => Promise<boolean>;
+  isSecureContext: boolean;
+  isInAppBrowser: boolean;
+  platform: DetectedPlatform;
+  promptInstall: () => Promise<'accepted' | 'dismissed' | 'unavailable'>;
 }
 
 const PwaContext = createContext<PwaContextValue | null>(null);
@@ -27,9 +32,23 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
   const [deferredPrompt, setDeferredPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
   const [isStandalone, setIsStandalone] = useState(false);
+  const [isSecureContext, setIsSecureContext] = useState(true);
+  const [isInAppBrowser, setIsInAppBrowser] = useState(false);
+  const [platform, setPlatform] = useState<DetectedPlatform>('desktop');
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+
+    const ua = navigator.userAgent || '';
+    if (/Android/i.test(ua)) setPlatform('android');
+    else if (/iPhone|iPad|iPod/i.test(ua)) setPlatform('ios');
+    else setPlatform('desktop');
+
+    setIsInAppBrowser(
+      /FBAN|FBAV|Instagram|WhatsApp|Line\/|Twitter|LinkedInApp|GSA\//i.test(ua) ||
+        /; wv\)/i.test(ua),
+    );
+    setIsSecureContext(window.isSecureContext);
 
     const checkStandalone = () => {
       const standaloneMatch = window.matchMedia?.('(display-mode: standalone)').matches;
@@ -66,15 +85,17 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const promptInstall = useCallback(async (): Promise<boolean> => {
-    if (!deferredPrompt) return false;
+  const promptInstall = useCallback(async (): Promise<
+    'accepted' | 'dismissed' | 'unavailable'
+  > => {
+    if (!deferredPrompt) return 'unavailable';
     await deferredPrompt.prompt();
     const result = await deferredPrompt.userChoice;
     if (result.outcome === 'accepted') {
       setDeferredPrompt(null);
-      return true;
+      return 'accepted';
     }
-    return false;
+    return 'dismissed';
   }, [deferredPrompt]);
 
   return (
@@ -83,6 +104,9 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
         swRegistered,
         canInstall: Boolean(deferredPrompt) && !isStandalone,
         isStandalone,
+        isSecureContext,
+        isInAppBrowser,
+        platform,
         promptInstall,
       }}
     >
@@ -98,4 +122,3 @@ export function usePwa(): PwaContextValue {
   }
   return ctx;
 }
-

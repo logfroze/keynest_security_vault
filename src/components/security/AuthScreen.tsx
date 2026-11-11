@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../providers/ThemeProvider';
 import { useVault } from '../providers/VaultProvider';
+import { InstallAppButton } from '../pwa/InstallAppButton';
 
 export function AuthScreen({ defaultMode = 'register' }: { defaultMode?: 'login' | 'register' }) {
   const { theme, toggleTheme } = useTheme();
@@ -52,14 +53,17 @@ export function AuthScreen({ defaultMode = 'register' }: { defaultMode?: 'login'
 
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center bg-[#F4F7FA] px-4 py-10 dark:bg-[#0F141A]">
-      <button
-        type="button"
-        onClick={toggleTheme}
-        className="absolute top-5 right-5 rounded-xl border border-slate-200 bg-white p-2.5 text-slate-600 shadow-xs hover:text-slate-900 dark:border-[#273342] dark:bg-[#161D26] dark:text-slate-300 dark:hover:text-white"
-        title="Toggle Theme"
-      >
-        {theme === 'light' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4 text-amber-400" />}
-      </button>
+      <div className="absolute top-5 right-5 flex items-center gap-2">
+        <InstallAppButton variant="compact" />
+        <button
+          type="button"
+          onClick={toggleTheme}
+          className="rounded-xl border border-slate-200 bg-white p-2.5 text-slate-600 shadow-xs hover:text-slate-900 dark:border-[#273342] dark:bg-[#161D26] dark:text-slate-300 dark:hover:text-white"
+          title="Toggle Theme"
+        >
+          {theme === 'light' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4 text-amber-400" />}
+        </button>
+      </div>
 
       <div className="w-full max-w-md space-y-6">
         <div className="flex flex-col items-center text-center">
