@@ -7,6 +7,7 @@ import {
   Database,
   Download,
   Fingerprint,
+  Grid3X3,
   KeyRound,
   Laptop,
   LifeBuoy,
@@ -24,6 +25,7 @@ import { usePwa } from '../providers/PwaProvider';
 import { useTheme } from '../providers/ThemeProvider';
 import { useVault } from '../providers/VaultProvider';
 import { InstallAppButton } from '../pwa/InstallAppButton';
+import { QuickPinModal } from '../security/QuickPinModal';
 import { RecoveryBannerModal } from '../security/RecoveryBannerModal';
 
 export function SettingsView({
@@ -44,11 +46,14 @@ export function SettingsView({
     deviceSessions,
     securityEvents,
     webAuthnAvailable,
+    hasQuickPin,
     updatePreferences,
     changeMasterPassword,
     regenerateRecoveryKey,
     enrollPasskey,
     removePasskey,
+    setupQuickPin,
+    disableQuickPin,
     revokeSession,
     createEncryptedBackup,
     importEncryptedBackup,
@@ -66,6 +71,9 @@ export function SettingsView({
 
   const [rotatedRecoveryKey, setRotatedRecoveryKey] = useState<string | null>(null);
   const [recBusy, setRecBusy] = useState(false);
+
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [pinBusy, setPinBusy] = useState(false);
 
   const [backupPassphrase, setBackupPassphrase] = useState('');
   const [restorePassphrase, setRestorePassphrase] = useState('');
@@ -423,6 +431,60 @@ export function SettingsView({
         </section>
       </div>
 
+      {/* Quick PIN Unlock (4-Digit Code) */}
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs dark:border-[#24303F] dark:bg-[#161D26]">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Grid3X3 className="h-4.5 w-4.5 text-teal-600 dark:text-teal-400" />
+            <h2 className="text-base font-semibold text-slate-900 dark:text-white">
+              Quick PIN Unlock (4-Digit Code)
+            </h2>
+          </div>
+          <span
+            className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+              hasQuickPin
+                ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:ring-emerald-500/30'
+                : 'bg-slate-100 text-slate-600 dark:bg-[#1E2733] dark:text-slate-400'
+            }`}
+          >
+            {hasQuickPin ? 'Active on this device' : 'Not configured'}
+          </span>
+        </div>
+
+        <p className="mb-4 text-xs text-slate-600 dark:text-slate-300">
+          After logging in once with your email and password, use a 4-digit PIN on this device instead of your Master Password until you manually Sign Out. Encrypted strictly in local device storage with Argon2id + AES-256-GCM and cleared automatically after 5 wrong attempts.
+        </p>
+
+        <div className="flex flex-wrap gap-2.5">
+          <button
+            type="button"
+            disabled={pinBusy}
+            onClick={() => setShowPinModal(true)}
+            className="rounded-xl bg-teal-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-teal-500 disabled:opacity-50"
+          >
+            {hasQuickPin ? 'Change 4-Digit PIN' : 'Enable 4-Digit Quick PIN'}
+          </button>
+          {hasQuickPin && (
+            <button
+              type="button"
+              disabled={pinBusy}
+              onClick={async () => {
+                setPinBusy(true);
+                try {
+                  await disableQuickPin();
+                  notify('Quick PIN removed from this device.', 'warning');
+                } finally {
+                  setPinBusy(false);
+                }
+              }}
+              className="rounded-xl border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100 disabled:opacity-50 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300 dark:hover:bg-red-500/20"
+            >
+              {pinBusy ? 'Removing...' : 'Remove PIN'}
+            </button>
+          )}
+        </div>
+      </section>
+
       {/* Passkey Unlock */}
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs dark:border-[#24303F] dark:bg-[#161D26]">
         <div className="mb-3 flex items-center justify-between">
@@ -666,6 +728,22 @@ export function SettingsView({
           </div>
         </section>
       </div>
+
+      {showPinModal && (
+        <QuickPinModal
+          isChanging={hasQuickPin}
+          onClose={() => setShowPinModal(false)}
+          onSave={async (pin) => {
+            await setupQuickPin(pin);
+            notify(
+              hasQuickPin
+                ? 'Quick PIN updated for this device.'
+                : '4-Digit Quick PIN enabled on this device.',
+              'teal',
+            );
+          }}
+        />
+      )}
     </div>
   );
 }

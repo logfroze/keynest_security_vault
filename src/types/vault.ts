@@ -147,7 +147,10 @@ export type SecurityEventType =
   | 'backup_exported'
   | 'backup_restored'
   | 'item_conflict_detected'
-  | 'cloud_ai_toggled';
+  | 'cloud_ai_toggled'
+  | 'pin_enabled'
+  | 'pin_disabled'
+  | 'pin_locked_wiped';
 
 export interface SecurityEventRecord {
   id: string;
@@ -212,5 +215,20 @@ export interface AiConversationThread {
   title: string;
   updatedAt: string;
   messages: AiChatMessageRecord[];
+}
+
+export interface LocalPinEnvelopeRecord {
+  vaultKey: string; // `${userId}:${vaultId}`
+  userId: string;
+  vaultId: string;
+  salt: string;
+  kdfParams: KdfParams;
+  deviceSecret: string;
+  wrappedVek: string;
+  nonce: string;
+  failedAttempts: number;
+  maxAttempts: number;
+  createdAt: string;
+  updatedAt: string;
 }
 

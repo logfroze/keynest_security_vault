@@ -15,8 +15,19 @@ export function getSupabaseBrowserClient(): SupabaseClient | null {
     browserClient = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookieOptions: {
+          maxAge: 60 * 60 * 24 * 90, // 90 days persistence across PWA restarts until manual logout
+          path: '/',
+          sameSite: 'lax',
+        },
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+        },
+      },
     );
   }
   return browserClient;
 }
-

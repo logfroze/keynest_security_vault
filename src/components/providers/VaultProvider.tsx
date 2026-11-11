@@ -34,6 +34,13 @@ import {
   unlockWithPasskeyPrf,
 } from '@/modules/key-management/passkey';
 import {
+  disableQuickPinOnDevice,
+  enableQuickPinOnDevice,
+  hasQuickPinOnDevice,
+  QuickPinWipedError,
+  unlockWithQuickPinOnDevice,
+} from '@/modules/key-management/quickPin';
+import {
   exportEncryptedVaultBackup,
   restoreEncryptedVaultBackup,
   type EncryptedVaultBackupFile,
@@ -68,6 +75,7 @@ import {
   updateEncryptedVaultItem,
 } from '@/modules/vault/vaultManager';
 import {
+  clearAllLocalPinEnvelopes,
   DEFAULT_PREFERENCES,
   deleteEncryptedAiConversation,
   getEncryptedAiConversations,
@@ -117,6 +125,7 @@ interface VaultContextValue {
   pendingRecoveryKey: string | null;
   webAuthnAvailable: boolean;
   hasPasskeyEnvelope: boolean;
+  hasQuickPin: boolean;
   clipboardCountdown: number | null;
   toasts: ToastNotification[];
   notify: (message: string, tone?: ToastNotification['tone']) => void;
@@ -134,6 +143,9 @@ interface VaultContextValue {
   unlockWithMaster: (masterPassword: string) => Promise<void>;
   unlockWithRecovery: (recoveryKey: string) => Promise<void>;
   unlockWithPasskey: () => Promise<void>;
+  unlockWithPin: (pin: string) => Promise<void>;
+  setupQuickPin: (pin: string) => Promise<void>;
+  disableQuickPin: () => Promise<void>;
   lockVault: () => void;
   // CRUD
   createItem: (payload: VaultItemPayload) => Promise<DecryptedVaultItem>;
@@ -192,6 +204,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   const [deviceSessions, setDeviceSessions] = useState<DeviceSessionRecord[]>([]);
   const [securityEvents, setSecurityEvents] = useState<SecurityEventRecord[]>([]);
   const [conflicts, setConflicts] = useState<SyncConflict[]>([]);
+  const [hasQuickPin, setHasQuickPin] = useState(false);
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [pendingRecoveryKey, setPendingRecoveryKey] = useState<string | null>(null);
   const [clipboardCountdown, setClipboardCountdown] = useState<number | null>(null);
@@ -231,6 +244,15 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       setRecoveryConfig(state.recoveryConfig);
       setDeviceSessions(state.deviceSessions);
       setSecurityEvents(state.securityEvents);
+
+      if (state.vault) {
+        const pinReady = await hasQuickPinOnDevice(authUser.id, state.vault.id).catch(
+          () => false,
+        );
+        setHasQuickPin(pinReady);
+      } else {
+        setHasQuickPin(false);
+      }
 
       if (vekRef.current) {
         const { items: decrypted } = await decryptVaultItems(
@@ -385,6 +407,8 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     clearInMemorySecrets();
+    await clearAllLocalPinEnvelopes().catch(() => null);
+    setHasQuickPin(false);
     await signOutAccount();
     setUser(null);
     setProfile(null);
@@ -436,7 +460,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const unlockVaultWithVek = useCallback(
-    async (vek: Uint8Array, method: 'master' | 'recovery' | 'passkey') => {
+    async (vek: Uint8Array, method: 'master' | 'recovery' | 'passkey' | 'pin') => {
       if (!user || !vault) throw new Error('Vault metadata is unavailable.');
       vekRef.current = vek;
       const { items: decrypted } = await decryptVaultItems(vek, encryptedItems);
@@ -522,6 +546,75 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       throw err;
     }
   }, [user, vault, envelopes, unlockVaultWithVek]);
+
+  const unlockWithPin = useCallback(
+    async (pin: string) => {
+      if (!user || !vault) throw new Error('Vault not initialized.');
+      try {
+        const vek = await unlockWithQuickPinOnDevice({
+          userId: user.id,
+          vaultId: vault.id,
+          pin,
+        });
+        await unlockVaultWithVek(vek, 'pin');
+      } catch (err) {
+        if (err instanceof QuickPinWipedError) {
+          setHasQuickPin(false);
+          const ev = await recordSecurityEvent({
+            userId: user.id,
+            vaultId: vault.id,
+            eventType: 'pin_locked_wiped',
+            metadata: { reason: 'max_attempts_exceeded' },
+          });
+          setSecurityEvents((prev) => [ev, ...prev]);
+        } else {
+          const ev = await recordSecurityEvent({
+            userId: user.id,
+            vaultId: vault.id,
+            eventType: 'unlock_failed',
+            metadata: { method: 'pin' },
+          });
+          setSecurityEvents((prev) => [ev, ...prev]);
+        }
+        throw err;
+      }
+    },
+    [user, vault, unlockVaultWithVek],
+  );
+
+  const setupQuickPin = useCallback(
+    async (pin: string) => {
+      if (!user || !vault || !vekRef.current) {
+        throw new Error('Vault must be unlocked first.');
+      }
+      await enableQuickPinOnDevice({
+        userId: user.id,
+        vaultId: vault.id,
+        vek: vekRef.current,
+        pin,
+      });
+      setHasQuickPin(true);
+      const ev = await recordSecurityEvent({
+        userId: user.id,
+        vaultId: vault.id,
+        eventType: 'pin_enabled',
+      });
+      setSecurityEvents((prev) => [ev, ...prev]);
+    },
+    [user, vault],
+  );
+
+  const disableQuickPin = useCallback(async () => {
+    if (!user || !vault) return;
+    await disableQuickPinOnDevice(user.id, vault.id);
+    setHasQuickPin(false);
+    const ev = await recordSecurityEvent({
+      userId: user.id,
+      vaultId: vault.id,
+      eventType: 'pin_disabled',
+    });
+    setSecurityEvents((prev) => [ev, ...prev]);
+  }, [user, vault]);
 
   const createItem = useCallback(
     async (payload: VaultItemPayload) => {
@@ -1022,6 +1115,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       pendingRecoveryKey,
       webAuthnAvailable: isWebAuthnSupported(),
       hasPasskeyEnvelope,
+      hasQuickPin,
       clipboardCountdown,
       toasts,
       notify,
@@ -1034,6 +1128,9 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       unlockWithMaster,
       unlockWithRecovery,
       unlockWithPasskey,
+      unlockWithPin,
+      setupQuickPin,
+      disableQuickPin,
       lockVault,
       createItem,
       bulkCreateItems,
@@ -1073,6 +1170,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       conflicts,
       pendingRecoveryKey,
       hasPasskeyEnvelope,
+      hasQuickPin,
       clipboardCountdown,
       toasts,
       notify,
@@ -1085,6 +1183,9 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       unlockWithMaster,
       unlockWithRecovery,
       unlockWithPasskey,
+      unlockWithPin,
+      setupQuickPin,
+      disableQuickPin,
       lockVault,
       createItem,
       bulkCreateItems,

@@ -7,16 +7,19 @@ import {
   CreditCard,
   FileLock2,
   Globe,
+  Grid3X3,
   Landmark,
   Plus,
   ShieldCheck,
   Sparkles,
   User,
+  X,
 } from 'lucide-react';
 import { formatRelativeTime } from '@/modules/security/securityUtils';
 import { getPrimaryIdentifier } from '@/modules/vault/schemas';
 import type { DecryptedVaultItem, VaultCategory, VaultItemPayload } from '@/types/vault';
 import { useVault } from '../providers/VaultProvider';
+import { QuickPinModal } from '../security/QuickPinModal';
 import { ServiceMonogram } from '../ui/CategoryIcon';
 
 function padTwo(n: number): string {
@@ -101,9 +104,19 @@ export function HomeOverview({
   onAskAi: (prompt: string) => void;
   onNewEntry: () => void;
 }) {
-  const { backendMode, items, bulkCreateItems, copySecret, notify } = useVault();
+  const {
+    backendMode,
+    items,
+    hasQuickPin,
+    setupQuickPin,
+    bulkCreateItems,
+    copySecret,
+    notify,
+  } = useVault();
   const [aiPrompt, setAiPrompt] = useState('');
   const [seeding, setSeeding] = useState(false);
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [pinBannerDismissed, setPinBannerDismissed] = useState(false);
 
   const activeItems = useMemo(
     () => items.filter((item) => item.deletedAt === null),
@@ -232,6 +245,42 @@ export function HomeOverview({
           </div>
         </div>
       </div>
+
+      {/* Quick PIN Setup Banner (when not configured on this device) */}
+      {!hasQuickPin && !pinBannerDismissed && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-teal-200 bg-teal-50/70 px-5 py-3.5 dark:border-teal-500/30 dark:bg-teal-500/10">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-teal-600 text-white dark:bg-teal-500/20 dark:text-teal-300">
+              <Grid3X3 className="h-4.5 w-4.5" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                Enable 4-Digit Quick PIN on this device
+              </p>
+              <p className="text-xs text-slate-600 dark:text-slate-300">
+                Reopen your vault with a fast 4-digit PIN instead of typing your Master Password until you manually sign out.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowPinModal(true)}
+              className="rounded-xl bg-teal-600 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-teal-500"
+            >
+              Set 4-Digit PIN
+            </button>
+            <button
+              type="button"
+              onClick={() => setPinBannerDismissed(true)}
+              aria-label="Dismiss Quick PIN suggestion"
+              className="rounded-lg p-1.5 text-slate-400 hover:bg-teal-100 hover:text-slate-700 dark:hover:bg-teal-500/20 dark:hover:text-slate-200"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 2x2 Primary Category Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -430,6 +479,19 @@ export function HomeOverview({
             })}
           </div>
         </div>
+      )}
+
+      {showPinModal && (
+        <QuickPinModal
+          onClose={() => setShowPinModal(false)}
+          onSave={async (pin) => {
+            await setupQuickPin(pin);
+            notify(
+              '4-Digit Quick PIN enabled on this device. You can use it on future unlocks until signing out.',
+              'teal',
+            );
+          }}
+        />
       )}
     </div>
   );

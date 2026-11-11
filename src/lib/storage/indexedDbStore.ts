@@ -3,6 +3,7 @@ import type {
   DeviceSessionRecord,
   EncryptedAiConversationRecord,
   EncryptedVaultItemRecord,
+  LocalPinEnvelopeRecord,
   PasskeyCredentialRecord,
   RecoveryConfigRecord,
   SecurityEventRecord,
@@ -84,10 +85,14 @@ interface KeyNestIdbSchema extends DBSchema {
     value: EncryptedAiConversationRecord;
     indexes: { 'by-vault': string };
   };
+  localPinEnvelopes: {
+    key: string; // `${userId}:${vaultId}`
+    value: LocalPinEnvelopeRecord;
+  };
 }
 
 const DB_NAME = 'keynest_encrypted_vault_db';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 let dbPromise: Promise<IDBPDatabase<KeyNestIdbSchema>> | null = null;
 
@@ -139,6 +144,9 @@ export function getEncryptedDb(): Promise<IDBPDatabase<KeyNestIdbSchema>> {
         if (!db.objectStoreNames.contains('aiConversations')) {
           const store = db.createObjectStore('aiConversations', { keyPath: 'id' });
           store.createIndex('by-vault', 'vaultId');
+        }
+        if (!db.objectStoreNames.contains('localPinEnvelopes')) {
+          db.createObjectStore('localPinEnvelopes', { keyPath: 'vaultKey' });
         }
       },
     });
@@ -204,5 +212,33 @@ export async function getEncryptedAiConversations(
 export async function deleteEncryptedAiConversation(id: string): Promise<void> {
   const db = await getEncryptedDb();
   await db.delete('aiConversations', id);
+}
+
+export async function putLocalPinEnvelope(
+  record: LocalPinEnvelopeRecord,
+): Promise<void> {
+  const db = await getEncryptedDb();
+  await db.put('localPinEnvelopes', record);
+}
+
+export async function getLocalPinEnvelope(
+  userId: string,
+  vaultId: string,
+): Promise<LocalPinEnvelopeRecord | undefined> {
+  const db = await getEncryptedDb();
+  return db.get('localPinEnvelopes', `${userId}:${vaultId}`);
+}
+
+export async function deleteLocalPinEnvelope(
+  userId: string,
+  vaultId: string,
+): Promise<void> {
+  const db = await getEncryptedDb();
+  await db.delete('localPinEnvelopes', `${userId}:${vaultId}`);
+}
+
+export async function clearAllLocalPinEnvelopes(): Promise<void> {
+  const db = await getEncryptedDb();
+  await db.clear('localPinEnvelopes');
 }
 

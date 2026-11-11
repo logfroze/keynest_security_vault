@@ -114,12 +114,38 @@ export async function getCurrentAuthenticatedUser(): Promise<{
         window.history.replaceState({}, '', url.pathname + url.search);
       }
     }
-    const { data } = await supabase.auth.getUser();
-    if (!data.user) return null;
-    return {
-      id: data.user.id,
-      email: data.user.email ?? '',
-    };
+    try {
+      const { data, error } = await supabase.auth.getUser();
+      if (data.user) {
+        return {
+          id: data.user.id,
+          email: data.user.email ?? '',
+        };
+      }
+      if (
+        error &&
+        ((typeof navigator !== 'undefined' && !navigator.onLine) ||
+          error.name === 'AuthRetryableFetchError')
+      ) {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const cachedUser = sessionData.session?.user;
+        if (cachedUser) {
+          return {
+            id: cachedUser.id,
+            email: cachedUser.email ?? '',
+          };
+        }
+      }
+      return null;
+    } catch {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const cachedUser = sessionData.session?.user;
+      if (!cachedUser) return null;
+      return {
+        id: cachedUser.id,
+        email: cachedUser.email ?? '',
+      };
+    }
   }
 
   const email = await getActiveLocalSessionEmail();
